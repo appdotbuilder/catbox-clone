@@ -1,22 +1,32 @@
 
+import { db } from '../db';
+import { fileUploadsTable } from '../db/schema';
 import { type GetFileInput, type FileUpload } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function getFileInfo(input: GetFileInput): Promise<FileUpload | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is:
-    // 1. Look up file metadata by ID in the database
-    // 2. Check if file exists and hasn't expired
-    // 3. Return file metadata without incrementing download counter
-    // 4. Return null if file not found or expired
-    
-    return Promise.resolve({
-        id: input.id,
-        original_name: 'placeholder.txt',
-        filename: 'stored_filename.txt',
-        mime_type: 'text/plain',
-        file_size: 1024,
-        upload_date: new Date(),
-        download_count: 0,
-        expires_at: null
-    } as FileUpload);
-}
+export const getFileInfo = async (input: GetFileInput): Promise<FileUpload | null> => {
+  try {
+    // Query file by ID
+    const results = await db.select()
+      .from(fileUploadsTable)
+      .where(eq(fileUploadsTable.id, input.id))
+      .execute();
+
+    if (results.length === 0) {
+      return null;
+    }
+
+    const fileRecord = results[0];
+
+    // Check if file has expired
+    if (fileRecord.expires_at && fileRecord.expires_at <= new Date()) {
+      return null;
+    }
+
+    // Return file metadata without incrementing download counter
+    return fileRecord;
+  } catch (error) {
+    console.error('File info retrieval failed:', error);
+    throw error;
+  }
+};
